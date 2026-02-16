@@ -6,7 +6,7 @@
 
 import { BaseGeometry } from '../../../mol-geo/geometry/base';
 import { Structure } from '../../../mol-model/structure';
-import { Representation, RepresentationContext, RepresentationParamsGetter } from '../../../mol-repr/representation';
+import { Representation, RepresentationContext, RepresentationParamsGetter } from '../../representation';
 import { ThemeRegistryContext } from '../../../mol-theme/theme';
 import { ParamDefinition as PD } from '../../../mol-util/param-definition';
 import { ComplexRepresentation } from '../complex-representation';

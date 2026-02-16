@@ -4,85 +4,113 @@
  * @author Alexander Rose <alexander.rose@weirdbyte.de>
  */
 
-import { Vec3 } from '../../../../mol-math/linear-algebra';
 import { Structure } from '../structure';
 import { Unit } from '../unit';
 import { ElementIndex } from '../../model/indexing';
 import { StructureElement } from '../element';
-import { Coordination, CoordinationSite, EmptyCoordination } from './data';
+import { Coordination, CoordinationIndex, EmptyCoordination } from './data';
 import { cantorPairing } from '../../../../mol-data/util';
-
-const _pos = Vec3();
-
-const EmptyArray: ReadonlyArray<number> = [];
+import { BondType } from '../../model/types';
 
 /** Minimum number of bonds for an atom to be considered a coordination site */
 const MinCoordination = 4;
 
+function interBondCount(structure: Structure, unit: Unit.Atomic, index: StructureElement.UnitIndex): number {
+    let count = 0;
+    const indices = structure.interUnitBonds.getEdgeIndices(index, unit.id);
+    for (let i = 0, il = indices.length; i < il; ++i) {
+        const b = structure.interUnitBonds.edges[indices[i]];
+        if (BondType.isCovalent(b.props.flag) || BondType.is(b.props.flag, BondType.Flag.MetallicCoordination)) count += 1;
+    }
+    return count;
+}
+
+function intraBondCount(unit: Unit.Atomic, index: StructureElement.UnitIndex): number {
+    let count = 0;
+    const { offset, edgeProps: { flags } } = unit.bonds;
+    for (let i = offset[index], il = offset[index + 1]; i < il; ++i) {
+        if (BondType.isCovalent(flags[i]) || BondType.is(flags[i], BondType.Flag.MetallicCoordination)) count += 1;
+    }
+    return count;
+}
+
+function bondCount(structure: Structure, unit: Unit.Atomic, index: StructureElement.UnitIndex): number {
+    return interBondCount(structure, unit, index) + intraBondCount(unit, index);
+}
+
+//
+
+function eachInterBondedAtom(structure: Structure, unit: Unit.Atomic, index: StructureElement.UnitIndex, cb: (unit: Unit.Atomic, index: StructureElement.UnitIndex) => void): void {
+    const indices = structure.interUnitBonds.getEdgeIndices(index, unit.id);
+    for (let i = 0, il = indices.length; i < il; ++i) {
+        const b = structure.interUnitBonds.edges[indices[i]];
+        const uB = structure.unitMap.get(b.unitB) as Unit.Atomic;
+        if (BondType.isCovalent(b.props.flag) || BondType.is(b.props.flag, BondType.Flag.MetallicCoordination)) cb(uB, b.indexB);
+    }
+}
+
+function eachIntraBondedAtom(unit: Unit.Atomic, index: StructureElement.UnitIndex, cb: (unit: Unit.Atomic, index: StructureElement.UnitIndex) => void): void {
+    const { offset, b, edgeProps: { flags } } = unit.bonds;
+    for (let i = offset[index], il = offset[index + 1]; i < il; ++i) {
+        if (BondType.isCovalent(flags[i]) || BondType.is(flags[i], BondType.Flag.MetallicCoordination)) cb(unit, b[i] as StructureElement.UnitIndex);
+    }
+}
+
+function eachBondedAtom(structure: Structure, unit: Unit.Atomic, index: StructureElement.UnitIndex, cb: (unit: Unit.Atomic, index: StructureElement.UnitIndex) => void): void {
+    eachInterBondedAtom(structure, unit, index, cb);
+    eachIntraBondedAtom(unit, index, cb);
+}
+
+//
+
 export function computeCoordination(structure: Structure): Coordination {
-    const sites: CoordinationSite[] = [];
-    const siteIndexMap = new Map<number, number[]>();
+    const unitIds: number[] = [];
+    const indices: StructureElement.UnitIndex[] = [];
+    const numbers: number[] = [];
+    const siteIndex = new Map<number, CoordinationIndex>();
 
     for (let ui = 0, uil = structure.units.length; ui < uil; ++ui) {
         const unit = structure.units[ui];
         if (!Unit.isAtomic(unit)) continue;
 
         const { elements } = unit;
-
         for (let ei = 0, eil = elements.length; ei < eil; ++ei) {
             const element = elements[ei];
             const unitIndex = ei as StructureElement.UnitIndex;
-            const ligandPositions: Vec3[] = [];
-            const ligandUnits: Unit.Atomic[] = [];
-            const ligandElements: ElementIndex[] = [];
-
-            // Intra-unit bonds
-            const bonds = unit.bonds;
-            const offset = bonds.offset;
-            for (let bi = offset[unitIndex]; bi < offset[unitIndex + 1]; ++bi) {
-                const neighborIdx = bonds.b[bi];
-                const neighborElement = elements[neighborIdx];
-                unit.conformation.position(neighborElement, _pos);
-                ligandPositions.push(Vec3.clone(_pos));
-                ligandUnits.push(unit);
-                ligandElements.push(neighborElement);
-            }
-
-            // Inter-unit bonds
-            const interBondIndices = structure.interUnitBonds.getEdgeIndices(unitIndex, unit.id);
-            for (let ib = 0; ib < interBondIndices.length; ++ib) {
-                const edge = structure.interUnitBonds.edges[interBondIndices[ib]];
-                const otherUnitId = edge.unitA !== unit.id ? edge.unitA : edge.unitB;
-                const otherIndex = edge.indexA !== unitIndex ? edge.indexA : edge.indexB;
-                const otherUnit = structure.unitMap.get(otherUnitId) as Unit.Atomic;
-                const otherElement = otherUnit.elements[otherIndex];
-                otherUnit.conformation.position(otherElement, _pos);
-                ligandPositions.push(Vec3.clone(_pos));
-                ligandUnits.push(otherUnit);
-                ligandElements.push(otherElement);
-            }
-
-            if (ligandPositions.length >= MinCoordination) {
-                const siteIndex = sites.length;
-                sites.push({ unit, element, unitIndex, ligandPositions, ligandUnits, ligandElements });
-
-                const key = coordinationKey(unit.id, element);
-                if (siteIndexMap.has(key)) {
-                    siteIndexMap.get(key)!.push(siteIndex);
-                } else {
-                    siteIndexMap.set(key, [siteIndex]);
-                }
+            const _bondCount = bondCount(structure, unit, unitIndex);
+            if (_bondCount >= MinCoordination) {
+                siteIndex.set(coordinationKey(unit.id, element), siteIndex.size as CoordinationIndex);
+                unitIds.push(unit.id);
+                indices.push(unitIndex);
+                numbers.push(_bondCount);
             }
         }
     }
 
-    if (sites.length === 0) return EmptyCoordination;
+    if (siteIndex.size === 0) return EmptyCoordination;
+
+    const l = StructureElement.Location.create(structure);
 
     return {
-        sites,
-        getSiteIndices: (unit: Unit.Atomic, element: ElementIndex) => {
-            return siteIndexMap.get(coordinationKey(unit.id, element)) || EmptyArray;
+        sites: {
+            unitIds,
+            indices,
+            numbers,
+            count: siteIndex.size
         },
+        getSiteIndex: (unit: Unit.Atomic, element: ElementIndex) => {
+            return siteIndex.get(coordinationKey(unit.id, element)) ?? -1;
+        },
+        eachLigand: (siteIndex: CoordinationIndex, cb: (l: StructureElement.Location) => void) => {
+            const unitId = unitIds[siteIndex];
+            const element = indices[siteIndex];
+            const unit = structure.unitMap.get(unitId) as Unit.Atomic;
+            eachBondedAtom(structure, unit, element, (u, i) => {
+                l.unit = u;
+                l.element = u.elements[i];
+                cb(l);
+            });
+        }
     };
 }
 

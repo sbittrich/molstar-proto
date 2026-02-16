@@ -20,6 +20,7 @@ import { VisualContext } from '../../../mol-repr/visual';
 import { Theme } from '../../../mol-theme/theme';
 import { convexHull } from '../../../mol-math/geometry/convex-hull';
 import { SortedArray } from '../../../mol-data/int/sorted-array';
+import { CoordinationIndex } from '../../../mol-model/structure/structure/coordination/data';
 
 export const PolyhedronMeshParams = {
     ...ComplexMeshParams,
@@ -31,28 +32,35 @@ export type PolyhedronMeshParams = typeof PolyhedronMeshParams
 
 function createPolyhedronMesh(ctx: VisualContext, structure: Structure, theme: Theme, props: PD.Values<PolyhedronMeshParams>, mesh?: Mesh) {
     const { minCoordination, maxCoordination } = props;
-    const { child, coordination: { sites } } = structure;
+    const { child, coordination: { sites, eachLigand } } = structure;
 
-    const count = sites.length * 4;
+    const count = sites.count * 4;
     const builderState = MeshBuilder.createState(count, count / 2, mesh);
 
-    for (let i = 0; i < sites.length; i++) {
-        const site = sites[i];
-        const coord = site.ligandPositions.length;
-        if (coord < minCoordination || coord > maxCoordination) continue;
+    for (let i = 0; i < sites.count; i++) {
+        const number = sites.numbers[i];
+        if (number < minCoordination || number > maxCoordination) continue;
 
         if (child) {
-            const childUnit = child.unitMap.get(site.unit.id);
-            if (!childUnit || !SortedArray.has(childUnit.elements, site.element)) continue;
+            const unit = structure.unitMap.get(sites.unitIds[i]);
+            const childUnit = child.unitMap.get(unit.id);
+            const element = unit.elements[sites.indices[i]];
+            if (!childUnit || !SortedArray.has(childUnit.elements, element)) continue;
         }
 
-        const hull = convexHull(site.ligandPositions as Vec3[]);
+        const positions: Vec3[] = [];
+        eachLigand(i as CoordinationIndex, l => {
+            const p = l.unit.conformation.position(l.element, Vec3());
+            positions.push(p);
+        });
+
+        const hull = convexHull(positions);
         if (hull) {
             builderState.currentGroup = i;
             for (let i = 0; i < hull.indices.length; i += 3) {
-                const a = site.ligandPositions[hull.indices[i]];
-                const b = site.ligandPositions[hull.indices[i + 1]];
-                const c = site.ligandPositions[hull.indices[i + 2]];
+                const a = positions[hull.indices[i]];
+                const b = positions[hull.indices[i + 1]];
+                const c = positions[hull.indices[i + 2]];
                 MeshBuilder.addTriangle(builderState, a, b, c);
             }
         }
@@ -64,15 +72,15 @@ function createPolyhedronMesh(ctx: VisualContext, structure: Structure, theme: T
 function PolyhedronIterator(structure: Structure, props: PD.Values<PolyhedronMeshParams>): LocationIterator {
     const { sites } = structure.coordination;
 
-    const groupCount = sites.length;
+    const groupCount = sites.count;
     const instanceCount = 1;
     const location = StructureElement.Location.create(structure);
 
     function getLocation(groupIndex: number) {
-        if (groupIndex < sites.length) {
-            const site = sites[groupIndex];
-            location.unit = site.unit;
-            location.element = site.element;
+        if (groupIndex < sites.count) {
+            const u = structure.unitMap.get(sites.unitIds[groupIndex]);
+            location.unit = u;
+            location.element = u.elements[sites.indices[groupIndex]];
         }
         return location;
     }
@@ -87,15 +95,11 @@ function getPolyhedronLoci(pickingId: PickingId, structure: Structure, id: numbe
             return Structure.Loci(structure);
         }
         const { sites } = structure.coordination;
-        if (groupId < sites.length) {
-            const site = sites[groupId];
-            const unitIndex = SortedArray.indexOf(site.unit.elements, site.element);
-            if (unitIndex >= 0) {
-                return StructureElement.Loci(structure, [{
-                    unit: site.unit,
-                    indices: OrderedSet.ofSingleton(unitIndex as StructureElement.UnitIndex)
-                }]);
-            }
+        if (groupId < sites.count) {
+            return StructureElement.Loci(structure, [{
+                unit: structure.unitMap.get(sites.unitIds[groupId]),
+                indices: OrderedSet.ofSingleton(sites.indices[groupId])
+            }]);
         }
         return Structure.Loci(structure);
     }
@@ -107,18 +111,16 @@ function eachPolyhedron(loci: Loci, structure: Structure, apply: (interval: Inte
     if (!StructureElement.Loci.is(loci)) return false;
     if (!Structure.areEquivalent(loci.structure, structure)) return false;
 
-    const { getSiteIndices } = structure.coordination;
-
+    const { getSiteIndex } = structure.coordination;
     for (const { unit, indices } of loci.elements) {
         if (!Unit.isAtomic(unit)) continue;
         OrderedSet.forEach(indices, v => {
-            const element = unit.elements[v];
-            for (const groupIndex of getSiteIndices(unit, element)) {
+            const groupIndex = getSiteIndex(unit, unit.elements[v]);
+            if (groupIndex >= 0) {
                 if (apply(Interval.ofSingleton(groupIndex))) changed = true;
             }
         });
     }
-
     return changed;
 }
 

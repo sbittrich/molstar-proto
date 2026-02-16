@@ -5,34 +5,29 @@
  */
 
 import { Unit } from '../unit';
-import { Vec3 } from '../../../../mol-math/linear-algebra';
 import { ElementIndex } from '../../model/indexing';
 import { StructureElement } from '../element';
 
-export interface CoordinationSite {
-    /** Central atom's unit */
-    readonly unit: Unit.Atomic
-    /** Central atom's element index */
-    readonly element: ElementIndex
-    /** Central atom's UnitIndex within its unit */
-    readonly unitIndex: StructureElement.UnitIndex
-    /** Positions of coordinating neighbor atoms */
-    readonly ligandPositions: ReadonlyArray<Vec3>
-    /** Neighbor atom units */
-    readonly ligandUnits: ReadonlyArray<Unit.Atomic>
-    /** Neighbor atom element indices */
-    readonly ligandElements: ReadonlyArray<ElementIndex>
-}
+export type CoordinationIndex = { readonly '@type': 'coordination-index' } & number
 
 export interface Coordination {
-    readonly sites: ReadonlyArray<CoordinationSite>
-    /** Get site indices for atoms in the given unit */
-    readonly getSiteIndices: (unit: Unit.Atomic, element: ElementIndex) => ReadonlyArray<number>
+    readonly sites: {
+        readonly unitIds: ReadonlyArray<number>
+        readonly indices: ReadonlyArray<StructureElement.UnitIndex>
+        readonly numbers: ReadonlyArray<number>
+        readonly count: number
+    }
+    readonly getSiteIndex: (unit: Unit.Atomic, element: ElementIndex) => CoordinationIndex | -1
+    readonly eachLigand: (siteIndex: CoordinationIndex, cb: (l: StructureElement.Location) => void) => void
 }
 
-const EmptyArray: ReadonlyArray<any> = [];
-
 export const EmptyCoordination: Coordination = {
-    sites: EmptyArray,
-    getSiteIndices: () => EmptyArray,
+    sites: {
+        unitIds: [],
+        indices: [],
+        numbers: [],
+        count: 0
+    },
+    getSiteIndex: () => -1,
+    eachLigand: () => {}
 };
