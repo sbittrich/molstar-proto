@@ -1,7 +1,8 @@
 /**
- * Copyright (c) 2019-2024 mol* contributors, licensed under MIT, See LICENSE file for more info.
+ * Copyright (c) 2019-2026 mol* contributors, licensed under MIT, See LICENSE file for more info.
  *
  * @author Alexander Rose <alexander.rose@weirdbyte.de>
+ * @author Gianluca Tomasello <giagitom@gmail.com>
  */
 
 export const text_frag = `
@@ -27,23 +28,42 @@ void main(){
     #include clip_pixel
 
     float fragmentDepth = gl_FragCoord.z;
+
+    // determine if this is a background or glyph fragment
+    bool isBackground = vTexCoord.x > 1.0;
+
+    // discard background for non-visual variants (depth, pick, marking, emissive)
+    #if !defined(dRenderVariant_color) && !defined(dRenderVariant_tracing)
+        if (isBackground) discard;
+    #endif
+
+    // SDF test for glyph fragments — discard pixels outside glyph+border
+    float rawSdf = 0.0;
+    if (!isBackground) {
+        rawSdf = texture2D(tFont, vTexCoord).a;
+        float sdf = rawSdf + min(uBorderWidth, 0.49); // clamp to avoid exceeding max SDF range
+        if (sdf < 0.5) discard;
+    }
+
+    #ifdef enabledFragDepth
+        gl_FragDepthEXT = fragmentDepth;
+    #endif
+
     #include assign_material_color
 
-    if (vTexCoord.x > 1.0) {
+    if (isBackground) {
         #if defined(dRenderVariant_color) || defined(dRenderVariant_tracing)
             material = vec4(uBackgroundColor, uBackgroundOpacity * material.a);
         #endif
     } else {
-        // retrieve signed distance
-        float sdf = texture2D(tFont, vTexCoord).a + uBorderWidth;
-
-        if (sdf < 0.5) discard;
-
         #if defined(dRenderVariant_color) || defined(dRenderVariant_tracing)
-            // add border
-            float t = 0.5 + uBorderWidth;
-            if (uBorderWidth > 0.0 && sdf < t) {
+            if (uBorderWidth > 0.0 && rawSdf < 0.5) {
                 material.xyz = uBorderColor;
+            } else {
+                // push text fragments forward in depth so they render in front of border
+                #ifdef enabledFragDepth
+                    gl_FragDepthEXT = fragmentDepth - 0.0001;
+                #endif
             }
         #endif
     }
