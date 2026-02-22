@@ -39,6 +39,7 @@ Note that since we don't clearly distinguish between a public and private interf
 - Add more element-pair thresholds for bonding (Ag-S, CoSb, Ga-F)
 - Add `metalCoordination` style param (dashed, solid) for bonds
 - Fix `unitSymmetryGroups` for representations with `includeParent` enabled
+- Guard against `xr-spatial-tracking` blocked in `Permissions-Policy`
 
 ## [v5.6.1] - 2026-01-23
 - Disable occlusion culling in `ImagePass` (#1758)
