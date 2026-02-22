@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2025 mol* contributors, licensed under MIT, See LICENSE file for more info.
+ * Copyright (c) 2025-2026 mol* contributors, licensed under MIT, See LICENSE file for more info.
  *
  * @author Alexander Rose <alexander.rose@weirdbyte.de>
  */
@@ -23,6 +23,7 @@ import { Canvas3dInteractionHelper } from './interaction-events';
 import { ParamDefinition as PD } from '../../mol-util/param-definition';
 import { cameraProject } from '../camera/util';
 import { Binding } from '../../mol-util/binding';
+import { isDebugMode } from '../../mol-util/debug';
 
 const B = ButtonsType;
 const Trigger = Binding.Trigger;
@@ -281,15 +282,27 @@ export class XRManager {
     }
 
     private checkSupported = async () => {
-        if (!navigator.xr) return false;
+        if (!navigator.xr) {
+            this.isSupported.next(false);
+            return;
+        }
 
-        const [arSupported, vrSupported] = await Promise.all([
-            navigator.xr.isSessionSupported('immersive-ar'),
-            navigator.xr.isSessionSupported('immersive-vr'),
-        ]);
-        this.isSupported.next(arSupported || vrSupported);
+        try {
+            const [arSupported, vrSupported] = await Promise.all([
+                navigator.xr.isSessionSupported('immersive-ar'),
+                navigator.xr.isSessionSupported('immersive-vr'),
+            ]);
+            this.isSupported.next(arSupported || vrSupported);
+        } catch (e) {
+            if (isDebugMode) console.warn(e);
+            this.isSupported.next(false);
+        }
     };
 
+    /**
+     * This may fail due to permissions policy, device capabilities, etc.
+     * Always wrap calls to it in a try/catch block to handle errors.
+     */
     async request() {
         if (!navigator.xr) return;
 
