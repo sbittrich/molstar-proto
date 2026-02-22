@@ -43,6 +43,9 @@ Note that since we don't clearly distinguish between a public and private interf
 - Add more element-pair thresholds for bonding (Ag-S, CoSb, Ga-F)
 - Add `metalCoordination` style param (dashed, solid) for bonds
 - Fix `unitSymmetryGroups` for representations with `includeParent` enabled
+- Add `convexHull` helper
+- Add `Structure.coordination` sites
+- Add `Polyhedron` representation showing coordination sites
 - Guard against `xr-spatial-tracking` blocked in `Permissions-Policy`
 
 ## [v5.6.1] - 2026-01-23
