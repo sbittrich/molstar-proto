@@ -11,6 +11,7 @@ import { StructureElement } from '../element';
 import { Coordination, CoordinationIndex, EmptyCoordination } from './data';
 import { cantorPairing } from '../../../../mol-data/util';
 import { BondType } from '../../model/types';
+import { AtomicNumbers } from '../../model/properties/atomic/measures';
 
 /** Minimum number of bonds for an atom to be considered a coordination site */
 const MinCoordination = 4;
@@ -40,19 +41,23 @@ function bondCount(structure: Structure, unit: Unit.Atomic, index: StructureElem
 
 //
 
+const _H = AtomicNumbers['H'];
+
 function eachInterBondedAtom(structure: Structure, unit: Unit.Atomic, index: StructureElement.UnitIndex, cb: (unit: Unit.Atomic, index: StructureElement.UnitIndex) => void): void {
     const indices = structure.interUnitBonds.getEdgeIndices(index, unit.id);
     for (let i = 0, il = indices.length; i < il; ++i) {
         const b = structure.interUnitBonds.edges[indices[i]];
         const uB = structure.unitMap.get(b.unitB) as Unit.Atomic;
-        if (BondType.isCovalent(b.props.flag) || BondType.is(b.props.flag, BondType.Flag.MetallicCoordination)) cb(uB, b.indexB);
+        if ((BondType.isCovalent(b.props.flag) || BondType.is(b.props.flag, BondType.Flag.MetallicCoordination)) && uB.model.atomicHierarchy.derived.atom.atomicNumber[uB.elements[b.indexB]] !== _H) cb(uB, b.indexB);
     }
 }
 
 function eachIntraBondedAtom(unit: Unit.Atomic, index: StructureElement.UnitIndex, cb: (unit: Unit.Atomic, index: StructureElement.UnitIndex) => void): void {
+    const { elements } = unit;
+    const { atomicNumber } = unit.model.atomicHierarchy.derived.atom;
     const { offset, b, edgeProps: { flags } } = unit.bonds;
     for (let i = offset[index], il = offset[index + 1]; i < il; ++i) {
-        if (BondType.isCovalent(flags[i]) || BondType.is(flags[i], BondType.Flag.MetallicCoordination)) cb(unit, b[i] as StructureElement.UnitIndex);
+        if ((BondType.isCovalent(flags[i]) || BondType.is(flags[i], BondType.Flag.MetallicCoordination)) && atomicNumber[elements[b[i]]] !== _H) cb(unit, b[i] as StructureElement.UnitIndex);
     }
 }
 
