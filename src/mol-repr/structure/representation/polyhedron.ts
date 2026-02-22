@@ -11,17 +11,17 @@ import { ThemeRegistryContext } from '../../../mol-theme/theme';
 import { ParamDefinition as PD } from '../../../mol-util/param-definition';
 import { ComplexRepresentation } from '../complex-representation';
 import { StructureRepresentation, StructureRepresentationProvider, StructureRepresentationStateBuilder } from '../representation';
-import { PolyhedronMeshParams, PolyhedronMeshVisual } from '../visual/polyhedron-mesh';
+import { CoordinationPolyhedronMeshParams, CoordinationPolyhedronMeshVisual } from '../visual/coordination-polyhedron-mesh';
 
 const PolyhedronVisuals = {
-    'polyhedron-mesh': (ctx: RepresentationContext, getParams: RepresentationParamsGetter<Structure, PolyhedronMeshParams>) => ComplexRepresentation('Polyhedron mesh', ctx, getParams, PolyhedronMeshVisual),
+    'coordination-polyhedron-mesh': (ctx: RepresentationContext, getParams: RepresentationParamsGetter<Structure, CoordinationPolyhedronMeshParams>) => ComplexRepresentation('Coordination Polyhedron mesh', ctx, getParams, CoordinationPolyhedronMeshVisual),
 };
 
 export const PolyhedronParams = {
-    ...PolyhedronMeshParams,
+    ...CoordinationPolyhedronMeshParams,
     bumpFrequency: PD.Numeric(1, { min: 0, max: 10, step: 0.1 }, BaseGeometry.ShadingCategory),
     density: PD.Numeric(0.5, { min: 0, max: 1, step: 0.01 }, BaseGeometry.ShadingCategory),
-    visuals: PD.MultiSelect(['polyhedron-mesh'], PD.objectToOptions(PolyhedronVisuals)),
+    visuals: PD.MultiSelect(['coordination-polyhedron-mesh'], PD.objectToOptions(PolyhedronVisuals)),
 };
 export type PolyhedronParams = typeof PolyhedronParams
 export function getPolyhedronParams(ctx: ThemeRegistryContext, structure: Structure) {

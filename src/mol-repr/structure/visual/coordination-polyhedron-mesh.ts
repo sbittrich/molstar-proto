@@ -16,21 +16,21 @@ import { LocationIterator } from '../../../mol-geo/util/location-iterator';
 import { PickingId } from '../../../mol-geo/geometry/picking';
 import { Interval, OrderedSet } from '../../../mol-data/int';
 import { EmptyLoci, Loci } from '../../../mol-model/loci';
-import { VisualContext } from '../../../mol-repr/visual';
+import { VisualContext } from '../../visual';
 import { Theme } from '../../../mol-theme/theme';
 import { convexHull } from '../../../mol-math/geometry/convex-hull';
 import { SortedArray } from '../../../mol-data/int/sorted-array';
 import { CoordinationIndex } from '../../../mol-model/structure/structure/coordination/data';
 
-export const PolyhedronMeshParams = {
+export const CoordinationPolyhedronMeshParams = {
     ...ComplexMeshParams,
     includeParent: PD.Boolean(false),
     minCoordination: PD.Numeric(4, { min: 4, max: 12, step: 1 }, { description: 'Minimum number of coordinating atoms to draw a polyhedron' }),
     maxCoordination: PD.Numeric(12, { min: 4, max: 24, step: 1 }, { description: 'Maximum coordination number' }),
 };
-export type PolyhedronMeshParams = typeof PolyhedronMeshParams
+export type CoordinationPolyhedronMeshParams = typeof CoordinationPolyhedronMeshParams
 
-function createPolyhedronMesh(ctx: VisualContext, structure: Structure, theme: Theme, props: PD.Values<PolyhedronMeshParams>, mesh?: Mesh) {
+function createCoordinationPolyhedronMesh(ctx: VisualContext, structure: Structure, theme: Theme, props: PD.Values<CoordinationPolyhedronMeshParams>, mesh?: Mesh) {
     const { minCoordination, maxCoordination } = props;
     const { child, coordination: { sites, eachLigand } } = structure;
 
@@ -69,7 +69,7 @@ function createPolyhedronMesh(ctx: VisualContext, structure: Structure, theme: T
     return MeshBuilder.getMesh(builderState);
 }
 
-function PolyhedronIterator(structure: Structure, props: PD.Values<PolyhedronMeshParams>): LocationIterator {
+function CoordinationPolyhedronIterator(structure: Structure, props: PD.Values<CoordinationPolyhedronMeshParams>): LocationIterator {
     const { sites } = structure.coordination;
 
     const groupCount = sites.count;
@@ -88,7 +88,7 @@ function PolyhedronIterator(structure: Structure, props: PD.Values<PolyhedronMes
     return LocationIterator(groupCount, instanceCount, 1, getLocation, true);
 }
 
-function getPolyhedronLoci(pickingId: PickingId, structure: Structure, id: number) {
+function getCoordinationPolyhedronLoci(pickingId: PickingId, structure: Structure, id: number) {
     const { objectId, groupId } = pickingId;
     if (id === objectId) {
         if (groupId === PickingId.Null) {
@@ -106,7 +106,7 @@ function getPolyhedronLoci(pickingId: PickingId, structure: Structure, id: numbe
     return EmptyLoci;
 }
 
-function eachPolyhedron(loci: Loci, structure: Structure, apply: (interval: Interval) => boolean) {
+function eachCoordinationPolyhedron(loci: Loci, structure: Structure, apply: (interval: Interval) => boolean) {
     let changed = false;
     if (!StructureElement.Loci.is(loci)) return false;
     if (!Structure.areEquivalent(loci.structure, structure)) return false;
@@ -124,14 +124,14 @@ function eachPolyhedron(loci: Loci, structure: Structure, apply: (interval: Inte
     return changed;
 }
 
-export function PolyhedronMeshVisual(materialId: number): ComplexVisual<PolyhedronMeshParams> {
-    return ComplexMeshVisual<PolyhedronMeshParams>({
-        defaultProps: PD.getDefaultValues(PolyhedronMeshParams),
-        createGeometry: createPolyhedronMesh,
-        createLocationIterator: PolyhedronIterator,
-        getLoci: getPolyhedronLoci,
-        eachLocation: eachPolyhedron,
-        setUpdateState: (state: VisualUpdateState, newProps: PD.Values<PolyhedronMeshParams>, currentProps: PD.Values<PolyhedronMeshParams>) => {
+export function CoordinationPolyhedronMeshVisual(materialId: number): ComplexVisual<CoordinationPolyhedronMeshParams> {
+    return ComplexMeshVisual<CoordinationPolyhedronMeshParams>({
+        defaultProps: PD.getDefaultValues(CoordinationPolyhedronMeshParams),
+        createGeometry: createCoordinationPolyhedronMesh,
+        createLocationIterator: CoordinationPolyhedronIterator,
+        getLoci: getCoordinationPolyhedronLoci,
+        eachLocation: eachCoordinationPolyhedron,
+        setUpdateState: (state: VisualUpdateState, newProps: PD.Values<CoordinationPolyhedronMeshParams>, currentProps: PD.Values<CoordinationPolyhedronMeshParams>) => {
             state.createGeometry = (
                 newProps.minCoordination !== currentProps.minCoordination ||
                 newProps.maxCoordination !== currentProps.maxCoordination
