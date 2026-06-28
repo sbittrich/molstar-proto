@@ -6,6 +6,10 @@ Note that since we don't clearly distinguish between a public and private interf
 ## [Unreleased]
 - Fix size-only representation theme updates in `updateRepresentationsTheme`.
 - Fix ASA coloring for hydrogens
+- Add `histogramPercentile`, `histogramRobustStats`, `downsampleHistogram` to `mol-math/histogram`
+- Direct-volume transfer function improvements
+    - Add data-aware default control points and preset library
+    - Use log-scale on y-axis in control-points UI
 - Add `defaultSnapshotIndex` argument to `MVSLoadOptions` to enable loading a snapshot other than the first one by default
 - Fix `loaders.loadMvs*` options type
 
