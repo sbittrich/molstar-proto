@@ -5,6 +5,11 @@ Note that since we don't clearly distinguish between a public and private interf
 
 ## [Unreleased]
 - Add VTK PolyData `.vtp` file format support
+- Bloom on transparent and emissive geometry
+    - Move bloom into the postprocessing/illumination pass (composited inline)
+    - Tighten `isBackground` to handle packed transparent depth precisely
+    - Enable bloom on transparent background
+    - Background-aware blend: screen on transparent background, PMA over on opaque background, additive on geometry
 - Fix size-only representation theme updates in `updateRepresentationsTheme`.
 - Fix ASA coloring for hydrogens
 - Add `histogramPercentile`, `histogramRobustStats`, `downsampleHistogram` to `mol-math/histogram`
